@@ -25,8 +25,10 @@
 package org.jenkinsci.plugins.github_branch_source;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
+import edu.umd.cs.findbugs.annotations.Nullable;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -53,6 +55,7 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
     private static final long serialVersionUID = 1;
 
     private Boolean merge;
+    private String mergeCommitSha;
     private final int number;
     private final BranchSCMHead target;
     private final String sourceOwner;
@@ -67,6 +70,7 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
     PullRequestSCMHead(PullRequestSCMHead copy) {
         super(copy.getName());
         this.merge = copy.merge;
+        this.mergeCommitSha = copy.mergeCommitSha;
         this.number = copy.number;
         this.target = copy.target;
         this.sourceOwner = copy.sourceOwner;
@@ -80,6 +84,12 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
         super(name);
         // the merge flag is encoded into the name, so safe to store here
         this.merge = merge;
+        try {
+            this.mergeCommitSha = pr.getMergeCommitSha();
+        } catch (IOException ex) {
+            this.mergeCommitSha = null;
+            LOGGER.log(Level.WARNING, "Failed to get merge commit SHA\n" + ex.getMessage(), ex);
+        }
         this.number = pr.getNumber();
         this.target = new BranchSCMHead(pr.getBase().getRef());
         // the source stuff is immutable for a pull request on github, so safe to store here
@@ -93,9 +103,10 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
     }
 
     PullRequestSCMHead(@NonNull String name, String sourceOwner, String sourceRepo, String sourceBranch, int number,
-                       BranchSCMHead target, SCMHeadOrigin origin, ChangeRequestCheckoutStrategy strategy) {
+                       BranchSCMHead target, SCMHeadOrigin origin, ChangeRequestCheckoutStrategy strategy, @Nullable String mergeCommitSha) {
         super(name);
         this.merge = ChangeRequestCheckoutStrategy.MERGE == strategy;
+        this.mergeCommitSha = mergeCommitSha;
         this.number = number;
         this.target = target;
         this.sourceOwner = sourceOwner;
@@ -114,6 +125,10 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
 
     public int getNumber() {
         return number;
+    }
+
+    public String getMergeCommitSha() {
+        return mergeCommitSha;
     }
 
     /**

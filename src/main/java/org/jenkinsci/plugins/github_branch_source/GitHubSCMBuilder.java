@@ -261,7 +261,10 @@ public class GitHubSCMBuilder extends GitSCMBuilder<GitHubSCMBuilder> {
 
             if (h instanceof PullRequestSCMHead) {
                 PullRequestSCMHead head = (PullRequestSCMHead) h;
-                if (head.isMerge()) {
+                if (head.isMerge() && head.getMergeCommitSha() != null) {
+                    withRevision(new AbstractGitSCMSource.SCMRevisionImpl(head, head.getMergeCommitSha()));
+                }
+                else if (head.isMerge()) {
                     // add the target branch to ensure that the revision we want to merge is also available
                     String name = head.getTarget().getName();
                     String localName = "remotes/" + remoteName() + "/" + name;
