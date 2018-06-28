@@ -295,7 +295,7 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
             return new PullRequestSCMHead(head.getName(), head.getSourceOwner(), head.getSourceRepo(),
                     head.getSourceBranch(), head.getNumber(), head.getTarget(), source.getRepoOwner().equalsIgnoreCase(head.getSourceOwner())
                                         ? SCMHeadOrigin.DEFAULT
-                                        : new SCMHeadOrigin.Fork(head.getSourceOwner()), head.getCheckoutStrategy());
+                                        : new SCMHeadOrigin.Fork(head.getSourceOwner()), head.getCheckoutStrategy(), null);
         }
 
         @Override
@@ -320,7 +320,7 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
     @Restricted(NoExternalUse.class)
     public static class FixMetadata extends PullRequestSCMHead {
         FixMetadata(String name, Boolean merge, int number, BranchSCMHead branchSCMHead) {
-            super(name, null, null, null, number, branchSCMHead, null, merge ? ChangeRequestCheckoutStrategy.MERGE : ChangeRequestCheckoutStrategy.HEAD);
+            super(name, null, null, null, number, branchSCMHead, null, merge ? ChangeRequestCheckoutStrategy.MERGE : ChangeRequestCheckoutStrategy.HEAD, null);
         }
 
     }
@@ -346,7 +346,8 @@ public class PullRequestSCMHead extends SCMHead implements ChangeRequestSCMHead2
                     src == null ? null : src.getSourceRepo(), src == null ? null : src.getSourceBranch(),
                     head.getNumber(), head.getTarget(), src != null && source.getRepoOwner().equalsIgnoreCase(src.getSourceOwner())
                                         ? SCMHeadOrigin.DEFAULT
-                                        : new SCMHeadOrigin.Fork(head.getSourceOwner()), head.getCheckoutStrategy());
+                                        : new SCMHeadOrigin.Fork(head.getSourceOwner()), head.getCheckoutStrategy(),
+                                        null);
         }
 
         @Override
