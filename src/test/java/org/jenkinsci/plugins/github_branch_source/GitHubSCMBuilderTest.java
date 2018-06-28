@@ -47,6 +47,7 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.Assert.assertThat;
@@ -1740,6 +1741,70 @@ public class GitHubSCMBuilderTest {
         assertThat(merge, notNullValue());
         assertThat(merge.getBaseName(), is("remotes/origin/test-branch"));
         assertThat(merge.getBaseHash(), is("deadbeefcafebabedeadbeefcafebabedeadbeef"));
+    }
+
+    @Test
+    public void given__server_pullMerge_rev_userpass_with_mcs__when__build__then__scmBuilt() throws Exception {
+        source.setApiUri("https://github.test/api/v3");
+        PullRequestSCMHead head = new PullRequestSCMHead("PR-1", "qa", "qa-repo", "qa-branch", 1,
+                new BranchSCMHead("test-branch"), new SCMHeadOrigin.Fork("qa/qa-repo"),
+                ChangeRequestCheckoutStrategy.MERGE, "beefcafedeadbeefcafedeadbeefcafedeadbeef");
+        PullRequestSCMRevision revision = new PullRequestSCMRevision(
+                head,
+                "deadbeefcafebabedeadbeefcafebabedeadbeef",
+                "cafebabedeadbeefcafebabedeadbeefcafebabe"
+        );
+        assertThat(head.getMergeCommitSha(), notNullValue());
+        source.setCredentialsId("user-pass");
+        GitHubSCMBuilder instance = new GitHubSCMBuilder(source, head, revision);
+        assertThat(instance.credentialsId(), is("user-pass"));
+        assertThat(instance.head(), is((SCMHead) head));
+        assertThat(instance.revision(), is((SCMRevision) revision));
+        assertThat(instance.refSpecs(), contains("+refs/pull/1/head:refs/remotes/@{remote}/PR-1"));
+        assertThat("expecting guess value until withGitHubRemote called",
+                instance.remote(), is("https://github.test/tester/test-repo.git"));
+        assertThat(instance.browser(), instanceOf(GithubWeb.class));
+        assertThat(instance.browser().getRepoUrl(), is("https://github.test/qa/qa-repo"));
+
+        instance.withGitHubRemote();
+        assertThat(instance.remote(), is("https://github.test/tester/test-repo.git"));
+
+        GitSCM actual = instance.build();
+        assertThat(actual.getBrowser(), instanceOf(GithubWeb.class));
+        assertThat(actual.getBrowser().getRepoUrl(), is("https://github.test/qa/qa-repo"));
+        assertThat(actual.getGitTool(), nullValue());
+        assertThat(actual.getUserRemoteConfigs(), hasSize(1));
+        UserRemoteConfig config = actual.getUserRemoteConfigs().get(0);
+        assertThat(config.getName(), is("origin"));
+        assertThat(config.getRefspec(), is("+refs/pull/1/head:refs/remotes/origin/PR-1"));
+        assertThat(config.getUrl(), is("https://github.test/tester/test-repo.git"));
+        assertThat(config.getCredentialsId(), is("user-pass"));
+        RemoteConfig origin = actual.getRepositoryByName("origin");
+        assertThat(origin, notNullValue());
+        assertThat(origin.getURIs(), hasSize(1));
+        assertThat(origin.getURIs().get(0).toString(), is("https://github.test/tester/test-repo.git"));
+        assertThat(origin.getFetchRefSpecs(), hasSize(1));
+        assertThat(origin.getFetchRefSpecs().get(0).getSource(), is("refs/pull/1/head"));
+        assertThat(origin.getFetchRefSpecs().get(0).getDestination(), is("refs/remotes/origin/PR-1"));
+        assertThat(origin.getFetchRefSpecs().get(0).isForceUpdate(), is(true));
+        assertThat(origin.getFetchRefSpecs().get(0).isWildcard(), is(false));
+        assertThat(actual.getExtensions(), containsInAnyOrder(
+                instanceOf(BuildChooserSetting.class),
+                instanceOf(GitSCMSourceDefaults.class))
+        );
+        assertThat(actual.getExtensions(), not(containsInAnyOrder(instanceOf(MergeWithGitSCMExtension.class))));
+        BuildChooserSetting chooser = getExtension(actual, BuildChooserSetting.class);
+        assertThat(chooser, notNullValue());
+        assertThat(chooser.getBuildChooser(), instanceOf(AbstractGitSCMSource.SpecificRevisionBuildChooser.class));
+        AbstractGitSCMSource.SpecificRevisionBuildChooser revChooser =
+                (AbstractGitSCMSource.SpecificRevisionBuildChooser) chooser.getBuildChooser();
+        Collection<Revision> revisions = revChooser
+                .getCandidateRevisions(false, "test-branch", Mockito.mock(GitClient.class), new LogTaskListener(
+                        Logger.getAnonymousLogger(), Level.FINEST), null, null);
+        assertThat(revisions, hasSize(1));
+        assertThat(revisions.iterator().next().getSha1String(), is("cafebabedeadbeefcafebabedeadbeefcafebabe"));
+        MergeWithGitSCMExtension merge = getExtension(actual, MergeWithGitSCMExtension.class);
+        assertThat(merge, nullValue());
     }
 
     @Test
